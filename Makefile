@@ -8,13 +8,18 @@ CPPFLAGS = -Ilua/src -Isrc -MMD -MP -DHAVE_GIT_INFO
 CXXFLAGS ?= $(CFLAGS) -fno-exceptions
 
 CXXLIBFLAGS ?=
-LDFLAGS ?= -L$(BUILDDIR) -ltundra
+LDFLAGS += -L$(BUILDDIR) -ltundra
 
 PREFIX ?= /usr/local
 
-GIT_CMD = git branch 2>/dev/null | sed -n '/^\*/s/^\* //p' | sed 's/ /_/g' | sed 's/[)(]//g'
-GIT_BRANCH := $(shell $(GIT_CMD) )
-GIT_HEAD := $(shell git rev-parse HEAD 2>/dev/null)
+GIT_BRANCH := $(shell (git branch 2>/dev/null) | sed -n '/^\*/s/^\* //p')
+
+ifeq ($(GIT_BRANCH),)
+GIT_BRANCH := unknown
+GIT_FILE := dummy_version_file
+else
+GIT_FILE := .git/refs/heads/$(GIT_BRANCH)
+endif
 
 CHECKED ?= no
 ifeq ($(CHECKED), no)
@@ -149,8 +154,8 @@ all: $(BUILDDIR)/tundra2$(EXESUFFIX) \
 		 $(BUILDDIR)/t2-inspect$(EXESUFFIX) \
 		 $(BUILDDIR)/t2-unittest$(EXESUFFIX)
 
-$(BUILDDIR)/git_version_$(GIT_BRANCH).c:
-	echo 'const char g_GitVersion[] = "'$(GIT_HEAD)'";' > $@ && \
+$(BUILDDIR)/git_version_$(GIT_BRANCH).c: $(GIT_FILE)
+	sed 's/^\(.*\)/const char g_GitVersion[] = "\1";/' < $^ > $@ && \
 	echo 'const char g_GitBranch[] ="'$(GIT_BRANCH)'";' >> $@
 
 $(BUILDDIR)/git_version_$(GIT_BRANCH).o: $(BUILDDIR)/git_version_$(GIT_BRANCH).c
